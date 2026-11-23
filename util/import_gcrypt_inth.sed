@@ -14,4 +14,5 @@
 /^typedef gpg_err_code_t gcry_err_code_t;/ d
 /^typedef struct gcry_mpi \*gcry_mpi_t;/ d
 /^#error  gcrypt.h already included/ d
+s/size_t/grub_size_t/g
 p

@@ -57,6 +57,17 @@ AM_INIT_AUTOMAKE([1.11 tar-ustar])
 AC_PREREQ(2.64)
 AC_CONFIG_SRCDIR([include/grub/dl.h])
 AC_CONFIG_HEADERS([config-util.h])
+AH_BOTTOM([/* Darwin host definitions used by the imported gnulib snapshot. */
+#if defined(__APPLE__)
+# include <stddef.h>
+# ifndef UINTPTR_WIDTH
+#  define UINTPTR_WIDTH (sizeof(void *) * 8U)
+# endif
+# ifndef FNM_EXTMATCH
+#  define FNM_EXTMATCH 0
+# endif
+extern void *reallocarray (void *ptr, size_t nmemb, size_t size);
+#endif])
 
 # Explicitly check for pkg-config early on, since otherwise conditional
 # calls are problematic.
@@ -1798,18 +1809,26 @@ grub_PROG_TARGET_CC
 m4_ifndef([AX_CHECK_LINK_FLAG], [m4_fatal([autoconf-archive is missing. You must install it to generate the configure script.])])
 
 if test "x$TARGET_APPLE_LINKER" != x1 ; then
-AX_CHECK_LINK_FLAG([-Wl,--image-base,0x400000],
-    [TARGET_IMG_BASE_LDOPT="-Wl,--image-base"],
-    [TARGET_IMG_BASE_LDOPT="-Wl,-Ttext"],
-    [],
-    [AC_LANG_SOURCE([
+if test "x$target_cpu" = xi386 && test "x$platform" = xpc ; then
+  dnl GNU ld 2.46 accepts --image-base for ELF but applies it to the
+  dnl load segment, placing .text after ELF headers (0x9054 for a
+  dnl requested 0x9000 base).  PC BIOS kernel.img requires .text to
+  dnl begin exactly at the GRUB link address, so use -Ttext explicitly.
+  TARGET_IMG_BASE_LDOPT="-Wl,-Ttext"
+else
+  AX_CHECK_LINK_FLAG([-Wl,--image-base,0x400000],
+      [TARGET_IMG_BASE_LDOPT="-Wl,--image-base"],
+      [TARGET_IMG_BASE_LDOPT="-Wl,-Ttext"],
+      [],
+      [AC_LANG_SOURCE([
 asm (".globl start; start:");
 asm (".globl _start; _start:");
 asm (".globl __start; __start:");
 void __main (void);
 void __main (void) {}
 int main (void);
-    ])])
+      ])])
+fi
 grub_PROG_OBJCOPY_ABSOLUTE
 fi
 grub_PROG_LD_BUILD_ID_NONE
